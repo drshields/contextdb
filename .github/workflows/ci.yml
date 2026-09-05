@@ -83,7 +83,7 @@ jobs:
             -o bin/contextdb ./cmd/contextdb
 
       - name: Upload binary artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: contextdb-linux-amd64
           path: bin/contextdb
@@ -223,7 +223,7 @@ jobs:
           MD
 
       - name: Upload release health artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: release-health
           path: release-health/
