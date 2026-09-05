@@ -26,10 +26,10 @@
   },
   "homepage": "https://github.com/antiartificial/contextdb#readme",
   "devDependencies": {
-    "@sveltejs/vite-plugin-svelte": "^7.1.2",
+    "@sveltejs/vite-plugin-svelte": "^7.3.0",
     "mermaid": "^11.13.0",
-    "svelte": "^5.57.0",
-    "typescript": "^6.0.3",
+    "svelte": "^5.56.0",
+    "typescript": "^7.0.2",
     "vitepress": "^1.6.4",
     "vitepress-plugin-mermaid": "^2.0.17"
   },
