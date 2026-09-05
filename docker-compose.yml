@@ -62,7 +62,7 @@ services:
       retries: 5
 
   redis:
-    image: redis:7-alpine
+    image: redis:8-alpine
     container_name: contextdb-redis
     restart: unless-stopped
     profiles:
