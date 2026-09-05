@@ -34,6 +34,6 @@
     "vitepress-plugin-mermaid": "^2.0.17"
   },
   "dependencies": {
-    "motion": "^12.38.0"
+    "motion": "^13.1.1"
   }
 }
