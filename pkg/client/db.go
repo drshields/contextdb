@@ -2795,9 +2795,13 @@ func (h *NamespaceHandle) KnowledgeGaps(ctx context.Context, req GapRequest) (*r
 
 // AcquisitionPlan turns detected knowledge gaps and weak claims into acquisition tasks.
 func (h *NamespaceHandle) AcquisitionPlan(ctx context.Context, req AcquisitionPlanRequest) (*AcquisitionPlan, error) {
+	const maxAcquisitionPlanBudget = 1000
+
 	budget := req.Budget
 	if budget <= 0 {
 		budget = 10
+	} else if budget > maxAcquisitionPlanBudget {
+		budget = maxAcquisitionPlanBudget
 	}
 	gapReport, err := h.KnowledgeGaps(ctx, GapRequest{
 		TopK:       req.TopK,
