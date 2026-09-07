@@ -1408,12 +1408,20 @@ func (s *RESTServer) handleAcquisitionPlan(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	const maxAcquisitionPlanBudget = 1000
+	budget := req.Budget
+	if budget <= 0 {
+		budget = 10
+	} else if budget > maxAcquisitionPlanBudget {
+		budget = maxAcquisitionPlanBudget
+	}
+
 	h := s.db.Namespace(ns, resolveMode(req.Mode))
 	plan, err := h.AcquisitionPlan(r.Context(), client.AcquisitionPlanRequest{
 		TopK:       req.TopK,
 		MinGapSize: req.MinGapSize,
 		MaxGaps:    req.MaxGaps,
-		Budget:     req.Budget,
+		Budget:     budget,
 	})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err)
@@ -1435,13 +1443,21 @@ func (s *RESTServer) handleAcquisitionExecute(w http.ResponseWriter, r *http.Req
 		return
 	}
 
+	const maxAcquisitionPlanBudget = 1000
+	budget := req.Budget
+	if budget <= 0 {
+		budget = 10
+	} else if budget > maxAcquisitionPlanBudget {
+		budget = maxAcquisitionPlanBudget
+	}
+
 	h := s.db.Namespace(ns, resolveMode(req.Mode))
 	execReq := client.AcquisitionExecutionRequest{
 		AcquisitionPlanRequest: client.AcquisitionPlanRequest{
 			TopK:       req.TopK,
 			MinGapSize: req.MinGapSize,
 			MaxGaps:    req.MaxGaps,
-			Budget:     req.Budget,
+			Budget:     budget,
 		},
 		TaskIDs:          req.TaskIDs,
 		Connectors:       req.Connectors,
