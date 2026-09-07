@@ -797,17 +797,22 @@ func (h *adminHandler) handleSearch(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "missing ns parameter", http.StatusBadRequest)
 		return
 	}
-	limit := 10
+	const (
+		defaultLimit = 10
+		maxLimit     = 50
+	)
+	safeLimit := defaultLimit
 	if rawLimit := strings.TrimSpace(r.URL.Query().Get("limit")); rawLimit != "" {
 		parsed, err := strconv.Atoi(rawLimit)
 		if err != nil || parsed < 1 {
 			http.Error(w, "invalid limit parameter", http.StatusBadRequest)
 			return
 		}
-		limit = parsed
-	}
-	if limit > 50 {
-		limit = 50
+		if parsed > maxLimit {
+			safeLimit = maxLimit
+		} else {
+			safeLimit = parsed
+		}
 	}
 	var labels []string
 	if rawLabels := strings.TrimSpace(r.URL.Query().Get("labels")); rawLabels != "" {
@@ -829,14 +834,14 @@ func (h *adminHandler) handleSearch(w http.ResponseWriter, r *http.Request) {
 		return nodes[i].TxTime.After(nodes[j].TxTime)
 	})
 	query := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("q")))
-	results := make([]searchResult, 0, min(limit, len(nodes)))
+	results := make([]searchResult, 0, min(safeLimit, len(nodes)))
 	for _, node := range nodes {
 		result, ok := buildSearchResult(node, query)
 		if !ok {
 			continue
 		}
 		results = append(results, result)
-		if len(results) >= limit {
+		if len(results) >= safeLimit {
 			break
 		}
 	}
