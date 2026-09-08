@@ -2815,7 +2815,7 @@ func (h *NamespaceHandle) AcquisitionPlan(ctx context.Context, req AcquisitionPl
 		Namespace:     h.cfg.ID,
 		CoverageScore: gapReport.CoverageScore,
 		TotalNodes:    gapReport.TotalNodes,
-		Tasks:         make([]AcquisitionTask, 0, budget),
+		Tasks:         make([]AcquisitionTask, 0),
 	}
 	for _, gap := range gapReport.Gaps {
 		plan.Tasks = append(plan.Tasks, AcquisitionTask{
