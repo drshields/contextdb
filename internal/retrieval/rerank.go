@@ -88,6 +88,10 @@ func (r *LLMReranker) Rerank(ctx context.Context, query string, candidates []cor
 }
 
 func fallbackRerank(candidates []core.Node, topK int) []core.ScoredNode {
+	if topK <= 0 || topK > len(candidates) {
+		topK = len(candidates)
+	}
+
 	results := make([]core.ScoredNode, 0, topK)
 	for i, c := range candidates {
 		if i >= topK {
