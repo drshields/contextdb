@@ -32,8 +32,16 @@ func (r *LLMReranker) Rerank(ctx context.Context, query string, candidates []cor
 	if len(candidates) == 0 {
 		return nil, nil
 	}
-	if topK <= 0 || topK > len(candidates) {
+
+	const maxRerankTopK = 200
+	if topK <= 0 {
 		topK = len(candidates)
+	}
+	if topK > len(candidates) {
+		topK = len(candidates)
+	}
+	if topK > maxRerankTopK {
+		topK = maxRerankTopK
 	}
 
 	// Build prompt with candidates
