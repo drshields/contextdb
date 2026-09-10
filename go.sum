@@ -124,8 +124,8 @@ github.com/prometheus/common v0.9.1/go.mod h1:yhUN8i9wzaXS3w1O07YhxHEBxD+W35wd8b
 github.com/prometheus/procfs v0.0.0-20181005140218-185b4288413d/go.mod h1:c3At6R/oaqEKCNdg8wHV1ftS6bRYblBhIjjI8uT2IGk=
 github.com/prometheus/procfs v0.0.2/go.mod h1:TjEm7ze935MbeOT/UhFTIMYKhuLP4wbCsTZCD3I8kEA=
 github.com/prometheus/procfs v0.0.8/go.mod h1:7Qr8sr6344vo1JqZ6HhLceV9o3AJ1Ff+GxbHq6oeK9A=
-github.com/qdrant/go-client v1.19.1 h1:zBEe3qLw841OG6EEShgguE4G0Qm+wJyf/CCVPFp1fqo=
-github.com/qdrant/go-client v1.19.1/go.mod h1:etxS7W+x+NFEPDk+FUhUPKEq95hckHxeXQqWiljJIYw=
+github.com/qdrant/go-client v1.19.2 h1:R4w8PG8cdtTzaviU/76JuCc0pI/tzbUE27B8UVqSf74=
+github.com/qdrant/go-client v1.19.2/go.mod h1:etxS7W+x+NFEPDk+FUhUPKEq95hckHxeXQqWiljJIYw=
 github.com/redis/go-redis/v9 v9.22.0 h1:laDvpYXTJtZLloinw1fA5Kqd6HAEH2XKxOkG/PDq2F0=
 github.com/redis/go-redis/v9 v9.22.0/go.mod h1:y2g0Wj8rQvuK0ELM+oxSudcLtC09JScs98I/X9gRWY4=
 github.com/sean-/seed v0.0.0-20170313163322-e2103e2c3529 h1:nn5Wsu0esKSJiIVhscUtVbo7ada43DJhG55ua/hjS5I=
