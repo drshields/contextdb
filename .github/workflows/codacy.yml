@@ -48,3 +48,10 @@ jobs:
           format: sarif
           gh-code-scanning-compat: true
           max-allowed-issues: 2147483647
+          
+      - name: Setup Go environment
+        uses: actions/setup-go@v7.0.0
+        with:
+          go-version: # optional
+          # Path to the go.mod, go.work, .go-version, or .tool-versions file.
+  
