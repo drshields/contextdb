@@ -1,6 +1,6 @@
 module github.com/antiartificial/contextdb
 
-go 1.25.0
+go 1.27.1
 
 require (
 	github.com/dgraph-io/badger/v4 v4.9.6
