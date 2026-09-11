@@ -27,7 +27,7 @@
   "homepage": "https://github.com/antiartificial/contextdb#readme",
   "devDependencies": {
     "vite": "^8.0.0",
-    "esbuild": "^0.28.1",
+    "esbuild": "0.28.2",
     "vitepress": "^1.6.4",
     "@sveltejs/vite-plugin-svelte": "^7.3.0",
     "mermaid": "^11.17.2",
