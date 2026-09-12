@@ -1489,6 +1489,10 @@ func (h *NamespaceHandle) Retrieve(ctx context.Context, req RetrieveRequest) ([]
 	if topK <= 0 {
 		topK = 10
 	}
+	const maxRetrieveTopK = 1000
+	if topK > maxRetrieveTopK {
+		topK = maxRetrieveTopK
+	}
 
 	params := req.ScoreParams
 	if params == (core.ScoreParams{}) {
