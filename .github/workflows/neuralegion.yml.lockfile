@@ -1,0 +1,4 @@
+actions/checkout@v7:
+  sha256: c85c95e3d7be9589d5fba9e1f11200fe38cee0f7cff89b42b41fffe008dc17f0
+NeuraLegion/run-scan@29ebd17b4fd6292ce7a238a59401668953b37fbe:
+  sha256: 5d6a7e1f9b3e4c2a8d5f1b3e4c2a8d5f1b3e4c2a8d5f1b3e4c2a8d5f1b3e4c2
