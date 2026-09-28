@@ -143,15 +143,16 @@ type Signal struct {
 
 // Pageview is one step of the session spine.
 type Pageview struct {
-	URL       string    `json:"url"`
-	Path      string    `json:"path"`
-	Referrer  string    `json:"referrer,omitempty"`
-	Title     string    `json:"title,omitempty"`
-	At        time.Time `json:"at"`
-	DwellMS   int       `json:"dwell_ms,omitempty"`
-	ScrollPct int       `json:"scroll_pct,omitempty"`
-	ViewportW int       `json:"viewport_w,omitempty"`
-	ViewportH int       `json:"viewport_h,omitempty"`
+	URL          string    `json:"url"`
+	Path         string    `json:"path"`
+	Referrer     string    `json:"referrer"`
+	ReferrerHost string    `json:"referrer_host,omitempty"`
+	Title        string    `json:"title,omitempty"`
+	At           time.Time `json:"at"`
+	DwellMS      int       `json:"dwell_ms,omitempty"`
+	ScrollPct    int       `json:"scroll_pct,omitempty"`
+	ViewportW    int       `json:"viewport_w,omitempty"`
+	ViewportH    int       `json:"viewport_h,omitempty"`
 }
 
 // Session is the client-reported spine for one visit.

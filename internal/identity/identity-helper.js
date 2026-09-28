@@ -51,14 +51,68 @@
 
   var ENDPOINT =
     (script && script.getAttribute("data-ctxdb-endpoint")) || "/v1/identity/ingest";
-  var SITE = (script && script.getAttribute("data-ctxdb-site")) || location.hostname;
-  var SALT = SITE;
 
   var SUBJECT_KEY = "ctxdb_subject";
   var SESSION_KEY = "ctxdb_session";
   var SESSION_TTL_MS = 30 * 60 * 1000;
 
   /* ---------------------------------------------------------------- utils */
+
+  /*
+   * Registrable domain (eTLD+1) derivation.
+   *
+   * This is the whole inter-site stitching mechanism, and it needs two
+   * coordinated pieces or neither works:
+   *
+   *   1. the subject cookie is set with Domain=.example.com, so the browser
+   *      sends it on landing.example.com AND www.example.com
+   *   2. the site key is the registrable domain, so both hosts derive the
+   *      same subject id
+   *
+   * Do one without the other and you get nothing: a cookie scoped to the
+   * exact host is never sent to a sibling subdomain, and a shared cookie
+   * paired with a per-hostname key still produces two unrelated subjects.
+   *
+   * This is NOT cross-site tracking. It is first-party only: it links
+   * subdomains of a domain the site already owns and already measures. It
+   * deliberately does nothing for the same person across two unrelated
+   * domains, because no first-party mechanism can and no mechanism that
+   * could is one you should ship.
+   *
+   * A full Public Suffix List is not bundled with the tag. This covers the
+   * common multi-label suffixes and otherwise takes the last two labels.
+   * Where that guess is wrong, set data-ctxdb-site on the tag -- which is
+   * also the right answer when the apex differs from the marketing domain.
+   */
+  var MULTI_LABEL_SUFFIXES = [
+    "co.uk", "org.uk", "gov.uk", "ac.uk", "me.uk", "net.uk",
+    "com.au", "net.au", "org.au", "edu.au", "gov.au",
+    "co.jp", "ne.jp", "or.jp", "ac.jp", "go.jp",
+    "co.nz", "net.nz", "org.nz", "co.za", "org.za",
+    "com.br", "com.mx", "com.ar", "com.co", "com.pe",
+    "co.kr", "or.kr", "com.cn", "net.cn", "org.cn",
+    "com.tw", "com.hk", "com.sg", "com.my", "co.in", "co.th", "com.ph", "com.vn"
+  ];
+
+  function registrableDomain(host) {
+    var h = String(host || "").toLowerCase().replace(/\.$/, "");
+    if (!h || h === "localhost") return h;
+    // Bare IPv4, or an IPv6 literal: no registrable domain exists.
+    if (/^\d{1,3}(\.\d{1,3}){3}$/.test(h) || h.indexOf(":") !== -1) return h;
+    var parts = h.split(".");
+    if (parts.length <= 2) return h;
+    var lastTwo = parts.slice(-2).join(".");
+    if (MULTI_LABEL_SUFFIXES.indexOf(lastTwo) !== -1) {
+      return parts.length >= 3 ? parts.slice(-3).join(".") : h;
+    }
+    return lastTwo;
+  }
+
+  function canShareAcrossSubdomains(host) {
+    var reg = registrableDomain(host);
+    // Only worth a Domain attribute when we are actually on a subdomain.
+    return reg !== host && reg.indexOf(".") !== -1;
+  }
 
   function readCookie(name) {
     var match = document.cookie.match(new RegExp("(^|;\\s*)" + name + "=([^;]*)"));
@@ -71,10 +125,13 @@
     // SameSite=Lax keeps this first-party. Lax rather than Strict so a click
     // from an external referrer still carries the subject key -- which is
     // exactly the return visit that matters.
+    var domain = canShareAcrossSubdomains(location.hostname)
+      ? "; Domain=." + registrableDomain(location.hostname)
+      : "";
     document.cookie =
       name + "=" + encodeURIComponent(value) +
       "; Path=/; Max-Age=" + Math.floor(ttlMs / 1000) +
-      "; SameSite=Lax" + secure;
+      "; SameSite=Lax" + secure + domain;
   }
 
   function uuid() {
@@ -124,9 +181,25 @@
     }
   }
 
+  // Computed here, after registrableDomain and its suffix table exist: a var
+  // initialiser runs in place, so evaluating SITE above the table would read
+  // an undefined MULTI_LABEL_SUFFIXES and throw.
+  //
+  // The site key is the registrable domain so that landing., www. and
+  // checkout. on the same property derive the same subject and therefore
+  // stitch. Override with data-ctxdb-site when the apex differs from the
+  // domain you actually measure on.
+  var SITE = (script && script.getAttribute("data-ctxdb-site")) || registrableDomain(location.hostname);
+  var SALT = SITE;
+
   /* ------------------------------------------------------------- lifecycle */
 
   var session = null;
+
+  function ensureSession() {
+    if (!session) session = loadSession();
+    return session;
+  }
 
   function loadSession() {
     var raw = null;
@@ -156,6 +229,7 @@
   }
 
   function subject() {
+    ensureSession();
     var key = readCookie(SUBJECT_KEY);
     if (!key) {
       key = uuid();
@@ -364,7 +438,7 @@
 
   window.ctxdbIdentity = {
     subject: subject,
-    flush: flush,
+    flush: function () { ensureSession(); return flush(); },
     // Exposed so a site can send a deliberate high-value signal (an identified
     // CRM match, a consent change, a support chat) through the same pipeline
     // instead of bolting on another vendor.
@@ -374,6 +448,7 @@
     // on a repeat. Repeating the same mark does not keep raising it. A mark
     // should therefore carry a claim you can afford to be wrong about.
     mark: function (kind, detail) {
+      ensureSession();
       var params = query();
       var utm = pick(params, UTM_PARAMS);
       var payload = {

@@ -39,7 +39,36 @@ Optional attributes:
 | Attribute | Default | Purpose |
 |---|---|---|
 | `data-ctxdb-endpoint` | `/v1/identity/ingest` | where reports are sent |
-| `data-ctxdb-site` | `location.hostname` | overrides the site key |
+| `data-ctxdb-site` | registrable domain (eTLD+1) | overrides the site key. Set this when the apex differs from the domain you actually measure on, e.g. a property on `shop.co.uk` reported under `brand.com`. |
+
+## Inter-site stitching
+
+`landing.example.com`, `www.example.com` and `checkout.example.com` are one
+visitor on one property. They become one `identity_subject` because of two
+coordinated pieces:
+
+1. The subject cookie is set with `Domain=.example.com`, so the browser sends it
+   on every subdomain.
+2. The site key is the **registrable domain**, so all three hosts derive the same
+   subject id.
+
+Do one without the other and you get nothing. A cookie without `Domain` is
+scoped to the exact host and never reaches a sibling subdomain; a shared cookie
+paired with a per-hostname site key still produces two unrelated subjects.
+
+This is first-party only. It links subdomains of a domain you own and already
+measure — the same mechanism as GA4 linked domains within one property. It is
+**not** cross-site tracking.
+
+`registrableDomain()` handles the common multi-label public suffixes
+(`co.uk`, `com.au`, `co.jp`, …) and otherwise takes the last two labels. A full
+Public Suffix List is not bundled. Where the guess is wrong, set
+`data-ctxdb-site`.
+
+**What this does not do:** link the same person across two unrelated domains
+with no login. No first-party mechanism can, and nothing that could is something
+to ship. The right behaviour there is to say the linkage was unavailable rather
+than to report a confident wrong number.
 
 ## What the tag sends
 
@@ -171,5 +200,8 @@ untrusted, so the decoder refuses to absorb surface it does not understand.
 - `GraphPrior` currently reads click IDs and referrers. It should also compare
   the incoming spine against stored spines and weight by `TrajectorySimilarity`.
 - The weights above are priors, not measurements. They want a real corpus.
-- Inter-site stitching (the same person across `landing.` and `checkout.`) is
-  the case that motivates the whole design and is not yet implemented.
+- There is no consumption surface yet. The identity graph writes evidence; the
+  `narrative`, `consensus` and `explain` endpoints already exist and are the
+  natural reader, but nothing connects them. Until that exists this is an input
+  pipeline with no user-facing output.
+- No cross-property stitching, by design. See above.
