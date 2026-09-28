@@ -117,6 +117,13 @@ func TestAdminBeliefDebuggerAPI(t *testing.T) {
 }
 
 func TestAdminDashboardIncludesDebugger(t *testing.T) {
+	// The dashboard is served from the committed shell with hashed asset
+	// tags injected from the Vite manifest, so it is only servable once the
+	// UI has been built. See TestAdminIndexWithoutBuildFailsLoudly for the
+	// unbuilt case.
+	if _, err := adminDist.ReadFile("dist/.vite/manifest.json"); err != nil {
+		t.Skip("admin UI not built; run npm run admin:build")
+	}
 	is := is.New(t)
 	db := client.MustOpen(client.Options{Mode: client.ModeEmbedded})
 	defer db.Close()
