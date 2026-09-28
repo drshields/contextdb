@@ -6,6 +6,12 @@ bin
 docker-compose.yml
 **/*_test.go
 bench/
+node_modules/
+sdk/typescript/node_modules/
+sdk/typescript/dist/
+**/__pycache__/
+docs/.vitepress/cache/
+docs/.vitepress/dist/
 
 # Generated admin UI output. Excluding these from the context keeps a stale
 # local `npm run admin:build` out of the image: stage 1 receives dist/
