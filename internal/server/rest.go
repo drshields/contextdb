@@ -88,6 +88,8 @@ func (s *RESTServer) Handler() http.Handler {
 	s.registerAcquisitionReviewRoutes(mux)
 	s.registerRecoveryRoutes(mux)
 
+	s.registerIdentityRoutes(mux)
+
 	// GET /v1/stats
 	mux.HandleFunc("GET /v1/stats", s.handleStats)
 	mux.HandleFunc("GET /v1/backends", func(w http.ResponseWriter, r *http.Request) {

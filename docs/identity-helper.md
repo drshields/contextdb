@@ -1,0 +1,207 @@
+# Identity Helper
+
+A companion tag for `gtag.js`. It reconstructs who someone is from evidence
+that lives outside the URL query string.
+
+## Why this exists
+
+Every team already instruments the click. `gclid`, `gbraid`, `wbraid`,
+`fbclid`, `ttclid` and the `utm` family arrive in the query string, get copied
+into GA4, and become the only linkage most implementations have. Those values
+describe **one pageview on one landing**. They say nothing about the person who
+landed, where they went next, or whether they came back.
+
+Everything else that identifies a visitor is not collected:
+
+- the referrer chain behind the click
+- the landing page itself
+- the page sequence through the site
+- dwell time and scroll depth
+- return visits and the gaps between them
+
+That is the signal this tag collects, and the graph weighs it.
+
+## Install
+
+```html
+<script async
+        src="https://your-contextdb-host/identity-helper.js"
+        data-ctxdb-endpoint="https://your-contextdb-host/v1/identity/ingest"></script>
+```
+
+That is the whole integration. Load it before or after `gtag.js`; the two do not
+interact and order does not matter. The tag is served by the contextdb binary,
+so there is no third-party script origin, no CDN, and no build step on the
+customer's site.
+
+Optional attributes:
+
+| Attribute | Default | Purpose |
+|---|---|---|
+| `data-ctxdb-endpoint` | `/v1/identity/ingest` | where reports are sent |
+| `data-ctxdb-site` | registrable domain (eTLD+1) | overrides the site key. Set this when the apex differs from the domain you actually measure on, e.g. a property on `shop.co.uk` reported under `brand.com`. |
+
+## Inter-site stitching
+
+`landing.example.com`, `www.example.com` and `checkout.example.com` are one
+visitor on one property. They become one `identity_subject` because of two
+coordinated pieces:
+
+1. The subject cookie is set with `Domain=.example.com`, so the browser sends it
+   on every subdomain.
+2. The site key is the **registrable domain**, so all three hosts derive the same
+   subject id.
+
+Do one without the other and you get nothing. A cookie without `Domain` is
+scoped to the exact host and never reaches a sibling subdomain; a shared cookie
+paired with a per-hostname site key still produces two unrelated subjects.
+
+This is first-party only. It links subdomains of a domain you own and already
+measure — the same mechanism as GA4 linked domains within one property. It is
+**not** cross-site tracking.
+
+`registrableDomain()` handles the common multi-label public suffixes
+(`co.uk`, `com.au`, `co.jp`, …) and otherwise takes the last two labels. A full
+Public Suffix List is not bundled. Where the guess is wrong, set
+`data-ctxdb-site`.
+
+**What this does not do:** link the same person across two unrelated domains
+with no login. No first-party mechanism can, and nothing that could is something
+to ship. The right behaviour there is to say the linkage was unavailable rather
+than to report a confident wrong number.
+
+## What the tag sends
+
+One report per session, fired on `visibilitychange` and `pagehide`, using
+`navigator.sendBeacon` so the most interesting pageviews (the ones that end a
+session) survive page unload.
+
+```jsonc
+{
+  "site": "shop.example.com",
+  "subject": "first-party-uuid-in-a-cookie",
+  "session": {
+    "id": "session-uuid",
+    "started_at": "...", "ended_at": "...",
+    "entry_path": "/landing",
+    "entry_referrer": "https://news.ycombinator.com/...",
+    "pageviews": [ { "path": "/landing", "dwell_ms": 8200, "scroll_pct": 100, ... } ],
+    "referrer_chain": ["news.ycombinator.com"]
+  },
+  "click_ids": { "gclid": "...", "wbraid": "..." },
+  "utm":       { "utm_source": "reddit" },
+  "signal":    { "screen_bucket": "1a2b3c", "lang_bucket": "en-US", "timezone_offset": -360 },
+  "consent":   { "analytics": true }
+}
+```
+
+### Host marks
+
+`window.ctxdbIdentity.mark(kind, detail)` pushes a deliberate signal through the
+same pipeline — an identified CRM match, a consent change, a support chat —
+instead of bolting on another vendor.
+
+A mark is **durable**: an identity confirmed against a CRM does not expire with
+the session that happened to carry it. It starts at `WeightMark` (0.50) because
+it arrives from an untrusted channel — the tag is a third-party script and
+`mark()` is callable by anything on the page. A repeat promotes it once, to
+`WeightMarkCorroborated` (0.85), and no further.
+
+Promotion is capped because a repeat is *weak* corroboration: the same tag
+asserting the same thing is not an independent channel. Genuine independence
+needs a second source — a server-side confirmation, or a mark that agrees with
+an independently-sourced observation — and that is not built yet.
+
+**Reading marks:** the earlier lower-confidence edge is deliberately retained.
+The same observation was *held* at 0.5 and later gained support, and an
+append-only system should not erase the fact that it was once less sure. Read
+the **strongest active `relates_to` edge per observation**; do not sum them.
+
+## The model: identity as weighted edges
+
+Identity is a **set of weighted edges**, never a merge decision.
+
+A node would force resolution at write time, which destroys the uncertainty that
+makes identity hard in the first place. One person accumulates many identifiers
+over time: `gclid` rotates, cookies expire, sessions fragment, devices multiply.
+Any node-based scheme therefore needs a resolution step, and that step's output
+cannot be inspected, weighted, or reversed. Edges preserve the uncertainty. The
+resolution itself becomes a claim, with a weight, that can be contested later.
+
+The client is **not trusted**. The tag reports what it observed; it never
+concludes that two observations belong to the same person. That judgement lives
+in `internal/identity`, where it is testable and auditable. An untrusted client
+is what makes this deployable at all — a tag that decides identity is a tag that
+can lie about it.
+
+### Weights
+
+| Evidence | Weight | Why |
+|---|---|---|
+| Advertising click ID, seen again | **0.92** | The platform minted that ID for a specific click. Repeat observation is near-deterministic. |
+| Advertising click ID, first sighting | **0.70** | Real, but one sighting is also consistent with a shared or reloaded link. |
+| Trajectory match | **0.55** | A page sequence is far more distinctive than any single page. |
+| External referrer on a return visit | **0.40** | Mild; the same blog sends many unrelated people. |
+| Repeated landing path | **0.35** | Popular pages are shared by everyone. |
+| Host mark, first | **0.50** | Supplied by the site, but through the same untrusted channel as everything else the tag sends. |
+| Host mark, corroborated | **0.85** | Seen before under the same key. Deliberately capped below the click ID — a browser must not be able to outrank a platform-minted identifier by repeating itself. |
+| Coarse device signal | **0.15** | Weak corroboration only. Expires with the session. |
+| `utm` parameter | **0.20** | Carried for campaign context, explicitly **not** as identity evidence. |
+
+These are starting priors in the same spirit as `core.Source`'s
+Laplace-smoothed `Beta(1,1)`. They are the first thing to recalibrate against a
+real corpus, and `TestEdgeWeightOrdering` pins their relative ranking so a
+recalibration is a deliberate act rather than an accident.
+
+## Privacy position
+
+This is the part worth arguing with, so it is stated plainly.
+
+**No third-party cookies.** Not required and increasingly blocked. The subject
+key is a first-party cookie set by this site, `SameSite=Lax` so a click from an
+external referrer still carries it — which is exactly the return visit that
+matters.
+
+**No cross-site fingerprint.** The coarse signals are bucketed in the browser,
+salted per site, and scoped to the session. There is no canvas, audio, font, or
+plugin enumeration; a test asserts their absence from the served tag. A stable
+per-browser identifier is precisely the category of thing being legislated out of
+existence, and an identity product built on one becomes the thing that gets
+regulated. Weak signal that expires is worth more here than strong signal that
+cannot be deployed.
+
+**Degradation, not suppression.** Withheld consent marks the record `degraded`
+and still ingests the first-party session spine. Blocking outright would mean
+pretending we have no linkage when we do, which is a worse record than
+recording that consent was withheld.
+
+**Nothing new leaves the browser.** The tag does not read page content, form
+fields, or keystrokes. It observes navigation the page already exposes.
+
+## What it does not do
+
+- Replace `gtag.js` or declare a second source of truth
+- Decide who anyone is
+- Survive a cleared cookie as a persistent identifier
+- Work across sites
+
+## Endpoints
+
+| Route | Purpose |
+|---|---|
+| `GET /identity-helper.js` | the tag, served from the binary |
+| `POST /v1/identity/ingest` | accepts one report |
+
+Ingest rejects unknown fields rather than silently accepting them: the client is
+untrusted, so the decoder refuses to absorb surface it does not understand.
+
+## Next
+
+- `GraphPrior` currently reads click IDs and referrers. It should also compare
+  the incoming spine against stored spines and weight by `TrajectorySimilarity`.
+- The weights above are priors, not measurements. They want a real corpus.
+- There is no consumption surface yet. The identity graph writes evidence; the
+  `narrative`, `consensus` and `explain` endpoints already exist and are the
+  natural reader, but nothing connects them. Until that exists this is an input
+  pipeline with no user-facing output.
+- No cross-property stitching, by design. See above.
