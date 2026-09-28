@@ -28,3 +28,8 @@ Thumbs.db
 node_modules/
 docs/.vitepress/cache/
 docs/.vitepress/dist/
+
+# SDK build and test outputs
+sdk/typescript/dist/
+__pycache__/
+.pytest_cache/
