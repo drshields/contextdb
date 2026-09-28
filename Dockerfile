@@ -12,7 +12,7 @@ RUN npm ci
 RUN npm run admin:build
 
 # ── Stage 1: builder ─────────────────────────────────────────────────────────
-FROM golang:1.26.8-alpine AS builder
+FROM golang:1.27.1-alpine AS builder
 
 # ca-certificates needed for outbound TLS (LLM API calls in later phases)
 RUN apk add --no-cache ca-certificates git make
