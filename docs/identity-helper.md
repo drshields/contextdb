@@ -66,9 +66,27 @@ session) survive page unload.
 }
 ```
 
+### Host marks
+
 `window.ctxdbIdentity.mark(kind, detail)` pushes a deliberate signal through the
 same pipeline — an identified CRM match, a consent change, a support chat —
 instead of bolting on another vendor.
+
+A mark is **durable**: an identity confirmed against a CRM does not expire with
+the session that happened to carry it. It starts at `WeightMark` (0.50) because
+it arrives from an untrusted channel — the tag is a third-party script and
+`mark()` is callable by anything on the page. A repeat promotes it once, to
+`WeightMarkCorroborated` (0.85), and no further.
+
+Promotion is capped because a repeat is *weak* corroboration: the same tag
+asserting the same thing is not an independent channel. Genuine independence
+needs a second source — a server-side confirmation, or a mark that agrees with
+an independently-sourced observation — and that is not built yet.
+
+**Reading marks:** the earlier lower-confidence edge is deliberately retained.
+The same observation was *held* at 0.5 and later gained support, and an
+append-only system should not erase the fact that it was once less sure. Read
+the **strongest active `relates_to` edge per observation**; do not sum them.
 
 ## The model: identity as weighted edges
 
@@ -96,6 +114,8 @@ can lie about it.
 | Trajectory match | **0.55** | A page sequence is far more distinctive than any single page. |
 | External referrer on a return visit | **0.40** | Mild; the same blog sends many unrelated people. |
 | Repeated landing path | **0.35** | Popular pages are shared by everyone. |
+| Host mark, first | **0.50** | Supplied by the site, but through the same untrusted channel as everything else the tag sends. |
+| Host mark, corroborated | **0.85** | Seen before under the same key. Deliberately capped below the click ID — a browser must not be able to outrank a platform-minted identifier by repeating itself. |
 | Coarse device signal | **0.15** | Weak corroboration only. Expires with the session. |
 | `utm` parameter | **0.20** | Carried for campaign context, explicitly **not** as identity evidence. |
 

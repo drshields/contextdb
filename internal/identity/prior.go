@@ -15,6 +15,7 @@ func GraphPrior(graph store.GraphStore) PriorFunc {
 		prior := &Prior{
 			SeenClickIDs:  map[string]bool{},
 			SeenReferrers: map[string]bool{},
+			SeenMarks:     map[string]int{},
 		}
 		if graph == nil {
 			return prior, nil
@@ -42,6 +43,12 @@ func GraphPrior(graph store.GraphStore) PriorFunc {
 			case KindReferrer:
 				if host, _ := detail["host"].(string); host != "" {
 					prior.SeenReferrers[host] = true
+				}
+			case KindMark:
+				kind, _ := detail["kind"].(string)
+				markDetail, _ := detail["detail"].(map[string]any)
+				if kind != "" {
+					prior.SeenMarks[MarkKey(kind, markDetail)]++
 				}
 			case KindSession:
 				prior.Sessions++

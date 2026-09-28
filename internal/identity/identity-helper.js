@@ -365,11 +365,17 @@
   window.ctxdbIdentity = {
     subject: subject,
     flush: flush,
-    // Exposed so a site can send a deliberate high-value signal (a consent
-    // change, an identified-CRM match, a support chat) through the same
-    // pipeline instead of bolting on another vendor.
+    // Exposed so a site can send a deliberate high-value signal (an identified
+    // CRM match, a consent change, a support chat) through the same pipeline
+    // instead of bolting on another vendor.
+    //
+    // The mark travels from an untrusted channel, so the server weighs it at
+    // WeightMark (0.5) and only promotes it to WeightMarkCorroborated (0.85)
+    // on a repeat. Repeating the same mark does not keep raising it. A mark
+    // should therefore carry a claim you can afford to be wrong about.
     mark: function (kind, detail) {
       var params = query();
+      var utm = pick(params, UTM_PARAMS);
       var payload = {
         site: SITE,
         subject: subject(),
@@ -382,10 +388,10 @@
           pageviews: session.pageviews,
           referrer_chain: session.referrerChain
         },
-        utm: Object.keys(params).length ? pick(params, UTM_PARAMS) : undefined,
+        utm: Object.keys(utm).length ? utm : undefined,
         consent: consent(),
-        agent: "ctxdb.mark:" + kind,
-        mark: detail || null
+        agent: navigator.userAgent ? navigator.userAgent.slice(0, 200) : "",
+        mark: { kind: String(kind), detail: detail || null }
       };
       return fetch(ENDPOINT, {
         method: "POST",

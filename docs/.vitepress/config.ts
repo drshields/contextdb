@@ -35,6 +35,7 @@ export default withMermaid(
               { text: 'v0.123.0 Recap', link: '/releases/v0.123.0' },
               { text: 'Review worker', link: '/concepts/review-worker' },
               { text: 'Access control', link: '/security/access-control' },
+              { text: 'Identity Helper', link: '/identity-helper' },
               { text: 'v0.122.0 (unverified proposal)', link: '/releases/v0.122.0' },
               { text: 'v0.121.0 (unverified proposal)', link: '/releases/v0.121.0' },
               { text: 'v0.120.0 (unverified proposal)', link: '/releases/v0.120.0' },

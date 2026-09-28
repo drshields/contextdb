@@ -104,6 +104,26 @@ const (
 	// behind every other visitor on a given browser, so on its own it is
 	// nearly worthless. It exists to corroborate, never to identify.
 	WeightCoarseSignal = 0.15
+
+	// WeightMark: a deliberate signal pushed by the host site through
+	// ctxdbIdentity.mark(). It arrives from the same untrusted channel as
+	// everything else the tag sends -- the tag is a third-party script and
+	// mark() is callable by anything on the page -- so it starts at the
+	// midpoint. Better than a coarse device signal, worse than a click ID
+	// the platform actually minted.
+	WeightMark = 0.50
+
+	// WeightMarkCorroborated: a mark previously seen under the same key.
+	//
+	// This is deliberately WEAK corroboration and the cap matters. The same
+	// tag repeating itself is not an independent channel, and a browser
+	// should never be able to outrank a platform-minted identifier by
+	// asserting the same thing often enough. Genuine independence needs a
+	// second channel -- a server-side confirmation, or a mark that agrees
+	// with an independently-sourced observation -- and that is not built yet.
+	// The ceiling here is the honest expression of "we have not solved
+	// independent corroboration".
+	WeightMarkCorroborated = 0.85
 )
 
 // Signal is the coarse, session-scoped device observation. Deliberately NOT a
@@ -159,7 +179,13 @@ type Report struct {
 	// ctxdbIdentity.mark(), such as an identified-CRM match. It travels the
 	// same pipeline as observed traffic rather than bolting on another
 	// vendor, which is the point.
-	Mark map[string]any `json:"mark,omitempty"`
+	Mark *Mark `json:"mark,omitempty"`
+}
+
+// Mark is a host-supplied assertion about the subject.
+type Mark struct {
+	Kind   string         `json:"kind"`
+	Detail map[string]any `json:"detail,omitempty"`
 }
 
 // Consent is recorded rather than assumed. A refusal does not stop ingest of
@@ -188,6 +214,7 @@ const (
 	KindReferrer = "referrer"
 	KindSignal   = "coarse_signal"
 	KindSession  = "session"
+	KindMark     = "host_mark"
 )
 
 // Resolved is the graph-shaped output of one report: the subject node plus
@@ -285,7 +312,13 @@ func Resolve(r Report, prior *Prior) Resolved {
 	}
 	out.Subject = subjectNode
 
-	emit := func(kind string, detail map[string]any, weight float64, observedAt time.Time, ttl *time.Time) {
+	// emit records one observation and binds it to the subject. The detail
+	// map is both the observation's identity and its stored content, so it
+	// must contain only intrinsic facts: anything derived (corroboration
+	// state, counts, prior sightings) belongs on the edge, where the
+	// confidence lives, otherwise a changing derivation would mint a new
+	// node on every update and fragment the evidence.
+	emit := func(kind string, detail map[string]any, weight float64, observedAt time.Time, ttl *time.Time, edgeProps ...map[string]any) {
 		obs := Observation{
 			ID:          ObservationID(site, r.Subject, kind, detail),
 			Kind:        kind,
@@ -313,6 +346,12 @@ func Resolve(r Report, prior *Prior) Resolved {
 				"session_id": r.Session.ID,
 			},
 		})
+		props := map[string]any{"kind": kind, "degraded": out.Degraded}
+		for _, extra := range edgeProps {
+			for k, v := range extra {
+				props[k] = v
+			}
+		}
 		out.Edges = append(out.Edges, core.Edge{
 			Namespace:  site,
 			Src:        subject,
@@ -322,7 +361,7 @@ func Resolve(r Report, prior *Prior) Resolved {
 			ValidFrom:  firstNonZero(observedAt, now),
 			ValidUntil: obs.ValidUntil,
 			TxTime:     now,
-			Properties: map[string]any{"kind": kind, "degraded": out.Degraded},
+			Properties: props,
 		})
 	}
 
@@ -373,6 +412,24 @@ func Resolve(r Report, prior *Prior) Resolved {
 		emit(KindReferrer, map[string]any{"host": ref}, weight, r.Session.EndedAt, nil)
 	}
 
+	// Host mark. Durable, because an identity confirmed against a CRM does not
+	// expire with the session that happened to carry it.
+	if r.Mark != nil && r.Mark.Kind != "" {
+		key := r.Mark.Kind + ":" + canonicalDetail(r.Mark.Detail)
+		weight := WeightMark
+		corroborated := prior.SeenMarks[key] > 0
+		if corroborated {
+			weight = WeightMarkCorroborated
+		}
+		emit(KindMark, map[string]any{
+			"kind":   r.Mark.Kind,
+			"detail": r.Mark.Detail,
+		}, weight, r.Session.EndedAt, nil, map[string]any{
+			"corroborated": corroborated,
+			"prior_marks":  prior.SeenMarks[key],
+		})
+	}
+
 	// Coarse signal: low weight, session-scoped validity. Expiring it with the
 	// session is what stops a weak signal from accumulating into a persistent
 	// identifier by repetition.
@@ -398,7 +455,13 @@ type Prior struct {
 	Sessions       int
 	SeenClickIDs   map[string]bool
 	SeenReferrers  map[string]bool
+	SeenMarks      map[string]int
 	TrajectorySeen bool
+}
+
+// MarkKey is the identity of a host mark for corroboration purposes.
+func MarkKey(kind string, detail map[string]any) string {
+	return kind + ":" + canonicalDetail(detail)
 }
 
 func spinePaths(pvs []Pageview) []string {

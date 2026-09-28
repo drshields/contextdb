@@ -140,7 +140,6 @@ func sourceFor(resolved Resolved, report Report) core.Source {
 				},
 			},
 			"degraded": resolved.Degraded,
-			"mark":     report.Mark,
 		},
 	}
 }
