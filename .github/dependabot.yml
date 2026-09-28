@@ -5,25 +5,27 @@
 
 version: 2
 updates:
-  - package-ecosystem: "pip"
-    directory: "/" 
+  - package-ecosystem: "npm"
+    directory: "/"
     schedule:
       interval: "daily"
 
-  - package-ecosystem: "npm"
-    directory: "/" 
+  # Scans the Dockerfile (node:24-alpine, golang:1.26.8-alpine).
+  # Previously unscanned -- only docker-compose was configured.
+  - package-ecosystem: "docker"
+    directory: "/"
     schedule:
-      interval: "daily"
+      interval: "weekly"
 
   - package-ecosystem: "docker-compose"
-    directory: "/" 
+    directory: "/"
     schedule:
-      interval: "daily"
+      interval: "weekly"
 
   - package-ecosystem: "gomod"
     directory: "/" # Location of your go.mod and go.sum files
     schedule:
-      interval: "daily"
+      interval: "weekly"
 
   - package-ecosystem: "github-actions"
     directory: "/"
