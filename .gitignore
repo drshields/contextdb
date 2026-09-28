@@ -4,8 +4,15 @@ bin/
 /tmp/
 *.html
 !internal/admin/ui/index.html
+!internal/admin/dist/index.html
 !docs/**/*.html
 !docs/**/*.scss
+
+# Generated admin UI output. The shell (index.html) and .gitkeep are tracked
+# so //go:embed always resolves; hashed assets and the Vite manifest are not.
+internal/admin/dist/assets/*
+!internal/admin/dist/assets/.gitkeep
+internal/admin/dist/.vite/
 
 # editor
 .idea/

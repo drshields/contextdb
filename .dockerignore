@@ -6,3 +6,10 @@ bin
 docker-compose.yml
 **/*_test.go
 bench/
+
+# Generated admin UI output. Excluding these from the context keeps a stale
+# local `npm run admin:build` out of the image: stage 1 receives dist/
+# solely via COPY --from=admin-ui-builder. The committed shell
+# (dist/index.html) is deliberately NOT excluded.
+internal/admin/dist/assets
+internal/admin/dist/.vite

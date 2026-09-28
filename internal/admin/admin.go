@@ -6,9 +6,11 @@
 package admin
 
 import (
+	"bytes"
 	"context"
 	"embed"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/fs"
 	"net/http"
@@ -31,13 +33,78 @@ import (
 
 // adminHandler serves the admin dashboard.
 type adminHandler struct {
-	db    *client.DB
-	graph store.GraphStore
-	mux   *http.ServeMux
+	db       *client.DB
+	graph    store.GraphStore
+	mux      *http.ServeMux
+	index    []byte
+	assetErr error
 }
 
-//go:embed dist/index.html dist/assets/*
+// adminShellPlaceholder marks where hashed asset tags are injected into the
+// committed dist/index.html shell.
+const adminShellPlaceholder = "<!--contextdb:assets-->"
+
+// viteManifestEntry is the subset of Vite's manifest.json we consume.
+type viteManifestEntry struct {
+	File    string   `json:"file"`
+	CSS     []string `json:"css"`
+	IsEntry bool     `json:"isEntry"`
+}
+
+// all: is required so the dot-prefixed .vite directory (which holds
+// manifest.json) is included; a bare dist glob silently drops it.
+//
+//go:embed all:dist
 var adminDist embed.FS
+
+// adminEntryChunk returns the manifest's entry chunk. The manifest is keyed
+// by source path, which changes with the Vite input, so the entry is located
+// by isEntry rather than by a hardcoded key.
+func adminEntryChunk(entries map[string]viteManifestEntry) (viteManifestEntry, bool) {
+	for _, entry := range entries {
+		if entry.IsEntry && entry.File != "" {
+			return entry, true
+		}
+	}
+	if len(entries) == 1 {
+		for _, entry := range entries {
+			if entry.File != "" {
+				return entry, true
+			}
+		}
+	}
+	return viteManifestEntry{}, false
+}
+
+// resolveAdminIndex returns the dashboard HTML with hashed script and
+// stylesheet tags injected, plus any error if the UI has not been built.
+func resolveAdminIndex() ([]byte, error) {
+	shell, err := adminDist.ReadFile("dist/index.html")
+	if err != nil {
+		return nil, fmt.Errorf("admin shell: %w", err)
+	}
+	raw, err := adminDist.ReadFile("dist/.vite/manifest.json")
+	if err != nil {
+		return nil, fmt.Errorf("admin UI is not built; run npm run admin:build: %w", err)
+	}
+	var entries map[string]viteManifestEntry
+	if err := json.Unmarshal(raw, &entries); err != nil {
+		return nil, fmt.Errorf("admin manifest: %w", err)
+	}
+	entry, ok := adminEntryChunk(entries)
+	if !ok {
+		return nil, errors.New("admin manifest has no entry chunk")
+	}
+	var tags strings.Builder
+	for _, css := range entry.CSS {
+		fmt.Fprintf(&tags, "<link rel=\"stylesheet\" href=\"/admin/%s\">\n", css)
+	}
+	fmt.Fprintf(&tags, `<script type="module" src="/admin/%s"></script>`, entry.File)
+	if !bytes.Contains(shell, []byte(adminShellPlaceholder)) {
+		return nil, fmt.Errorf("admin shell is missing the %s marker", adminShellPlaceholder)
+	}
+	return bytes.Replace(shell, []byte(adminShellPlaceholder), []byte(tags.String()), 1), nil
+}
 
 // New creates an http.Handler that serves the admin UI at /admin/.
 func New(db *client.DB) http.Handler {
@@ -47,6 +114,8 @@ func New(db *client.DB) http.Handler {
 		graph: graph,
 		mux:   http.NewServeMux(),
 	}
+	h.index, h.assetErr = resolveAdminIndex()
+
 	staticFS, err := fs.Sub(adminDist, "dist")
 	if err == nil {
 		h.mux.Handle("GET /admin/assets/", http.StripPrefix("/admin/", http.FileServer(http.FS(staticFS))))
@@ -368,13 +437,12 @@ func parseTime(s string) (time.Time, error) {
 
 // handleIndex serves the main dashboard HTML page.
 func (h *adminHandler) handleIndex(w http.ResponseWriter, r *http.Request) {
-	index, err := adminDist.ReadFile("dist/index.html")
-	if err != nil {
-		http.Error(w, "admin UI is not built; run npm run admin:build", http.StatusInternalServerError)
+	if h.assetErr != nil {
+		http.Error(w, h.assetErr.Error(), http.StatusInternalServerError)
 		return
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.Write(index)
+	w.Write(h.index)
 }
 
 // handleStats returns JSON stats for the dashboard.

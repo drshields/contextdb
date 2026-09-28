@@ -4,6 +4,10 @@ WORKDIR /src
 
 COPY package.json package-lock.json ./
 COPY internal/admin/ui ./internal/admin/ui
+# The committed, hash-free admin shell. The build keeps it and injects the
+# hashed asset references from .vite/manifest.json at serve time, so this
+# stage produces a complete dist/ on its own.
+COPY internal/admin/dist/index.html ./internal/admin/dist/index.html
 RUN npm ci
 RUN npm run admin:build
 
