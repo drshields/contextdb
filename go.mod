@@ -11,7 +11,7 @@ require (
 	github.com/hashicorp/memberlist v0.7.0
 	github.com/jackc/pgx/v5 v5.11.0
 	github.com/matryer/is v1.4.1
-	github.com/qdrant/go-client v1.19.2
+	github.com/qdrant/go-client v1.19.3
 	github.com/redis/go-redis/v9 v9.22.0
 	google.golang.org/grpc v1.84.0
 )
